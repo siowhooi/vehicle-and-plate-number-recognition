@@ -49,20 +49,20 @@ def process_image(image):
     return vehicle_class, plate_image, plate_text
 
 # Streamlit app
-st.title("Multi-Spot License Plate Recognition")
+st.title("Vehicle Class and License Plate Recognition")
 
 # Layout
 col1, col2 = st.columns([2, 3])
 
 # Left panel for image uploads or webcam captures
 with col1:
-    st.header("Input Spots")
+    st.header("Toll Plaza and Detected Vehicle")
     spots = {}
     results_data = []
 
     for i in range(1, 5):
-        st.subheader(f"Spot {i}")
-        option = st.radio(f"Input for Spot {i}:", ["Upload an Image", "Use Webcam"], key=f"spot_{i}")
+        st.subheader(f"Gombak Toll Plaza {i}")
+        option = st.radio(f"Detected Vehicle {i}:", ["Upload an Image", "Use Webcam"], key=f"spot_{i}")
 
         if option == "Upload an Image":
             uploaded_file = st.file_uploader(f"Upload image for Spot {i}", type=["jpg", "jpeg", "png"], key=f"file_{i}")
@@ -101,7 +101,7 @@ with col1:
 
 # Right panel for displaying results
 with col2:
-    st.header("Detection Results")
+    st.header("Detection")
     if results_data:
         st.table(results_data)
     else:
