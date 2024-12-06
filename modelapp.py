@@ -41,16 +41,18 @@ def process_image(image):
     return None, None, "No license plate detected"
 
 # Streamlit app
-st.title("Multi-Spot License Plate Recognition")
+st.title("Flexible Multi-Spot License Plate Recognition")
 
-# Layout
-col1, col2 = st.columns([2, 3])
+# User input for the number of spots
+num_spots = st.slider("Number of Spots (Cameras)", 1, 8, 4)
 
-# Left panel for image uploads or webcam captures
-with col1:
-    st.header("Input Spots")
-    spots = {}
-    for i in range(1, 5):
+# Dynamic layout for input spots
+cols = st.columns(2)  # Two columns for input layout
+spots = {}
+
+for i in range(1, num_spots + 1):
+    col = cols[(i - 1) % 2]  # Alternate between two columns
+    with col:
         st.subheader(f"Spot {i}")
         option = st.radio(f"Input for Spot {i}:", ["Upload an Image", "Use Webcam"], key=f"spot_{i}")
 
@@ -74,34 +76,35 @@ with col1:
                 else:
                     st.warning(f"Failed to capture an image for Spot {i}")
 
-# Right panel for displaying results
-with col2:
-    st.header("Detection Results")
-    if st.button("Process All Spots"):
-        results_data = []
-        for spot, image in spots.items():
-            if image:
-                with st.spinner(f"Processing Spot {spot}..."):
-                    plate_image, vehicle_class, plate_text = process_image(image)
-                    if plate_image is not None:
-                        # Save detection result
-                        results_data.append({
-                            "datetime": datetime.now().strftime("%d/%m/%Y %H:%M"),
-                            "vehicle_class": vehicle_class,
-                            "plate_number": plate_text,
-                            "spot": spot
-                        })
-                        st.image(plate_image, caption=f"Detected Plate - Spot {spot}", use_column_width=True)
-                    else:
-                        results_data.append({
-                            "datetime": datetime.now().strftime("%d/%m/%Y %H:%M"),
-                            "vehicle_class": "N/A",
-                            "plate_number": "No license plate detected",
-                            "spot": spot
-                        })
+# Detection results table
+st.subheader("Detection Results")
 
-        # Display results in a table
-        if results_data:
-            st.table(results_data)
-        else:
-            st.warning("No spots processed.")
+if st.button("Process All Spots"):
+    results_data = []
+    for spot, image in spots.items():
+        if image:
+            with st.spinner(f"Processing Spot {spot}..."):
+                plate_image, vehicle_class, plate_text = process_image(image)
+                if plate_image is not None:
+                    # Save detection result
+                    results_data.append({
+                        "datetime": datetime.now().strftime("%d/%m/%Y %H:%M"),
+                        "vehicle_class": vehicle_class,
+                        "plate_number": plate_text,
+                        "spot": spot
+                    })
+                    st.image(plate_image, caption=f"Detected Plate - Spot {spot}", use_column_width=True)
+                else:
+                    results_data.append({
+                        "datetime": datetime.now().strftime("%d/%m/%Y %H:%M"),
+                        "vehicle_class": "N/A",
+                        "plate_number": "No license plate detected",
+                        "spot": spot
+                    })
+
+    # Display results in a table
+    if results_data:
+        st.write("### Summary")
+        st.table(results_data)
+    else:
+        st.warning("No spots processed.")
