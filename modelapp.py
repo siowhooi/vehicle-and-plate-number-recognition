@@ -5,6 +5,7 @@ import cv2
 import numpy as np
 from PIL import Image
 from datetime import datetime
+import pytz
 
 # Load YOLO model
 model = YOLO(r"best.pt")
@@ -103,9 +104,13 @@ with col1:
             with st.spinner(f"Processing Spot {spot_name}..."):
                 vehicle_class, plate_image, plate_text = process_image(spots[spot_num])
                 if vehicle_class:
+                    # Get current time in Asia/Kuala_Lumpur timezone
+                    kuala_lumpur_tz = pytz.timezone('Asia/Kuala_Lumpur')
+                    current_time = datetime.now(kuala_lumpur_tz).strftime("%d/%m/%Y %H:%M")
+                    
                     # Save detection result
                     results_data.append({
-                        "datetime": datetime.now().strftime("%d/%m/%Y %H:%M"),
+                        "datetime": current_time,
                         "vehicle_class": vehicle_class,
                         "plate_number": plate_text,
                         "spot": spot_name
