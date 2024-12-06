@@ -60,23 +60,30 @@ col1, col2 = st.columns([2, 3])
 # Left panel for image uploads or webcam captures
 with col1:
     if toll_plaza_type == "Open Toll System":
-        st.header("Open Toll System and Detected Vehicle")
+        st.header("Open Toll System (Gombak Toll Plaza) and Detected Vehicle")
         spots = {1: None}  # Only one spot for Open Toll System
     else:
-        st.header("Closed Toll System and Detected Vehicle")
+        st.header("Closed Toll System (Kuala Lumpur, Penang, Ipoh) and Detected Vehicle")
         spots = {1: None, 2: None, 3: None}  # Three spots for Closed Toll System
 
     results_data = []
 
+    spot_names = {
+        1: "Kuala Lumpur",
+        2: "Penang",
+        3: "Ipoh"
+    }
+
     for spot_num in spots:
-        st.subheader(f"Toll Plaza Spot {spot_num}")
-        option = st.radio(f"Detected Vehicle {spot_num}:", ["Upload an Image", "Use Webcam"], key=f"spot_{spot_num}")
+        spot_name = "Gombak Toll Plaza" if toll_plaza_type == "Open Toll System" else spot_names[spot_num]
+        st.subheader(f"{spot_name}")
+        option = st.radio(f"Detected Vehicle at {spot_name}:", ["Upload an Image", "Use Webcam"], key=f"spot_{spot_num}")
 
         if option == "Upload an Image":
-            uploaded_file = st.file_uploader(f"Upload image for Spot {spot_num}", type=["jpg", "jpeg", "png"], key=f"file_{spot_num}")
+            uploaded_file = st.file_uploader(f"Upload image for {spot_name}", type=["jpg", "jpeg", "png"], key=f"file_{spot_num}")
             if uploaded_file is not None:
                 image = Image.open(uploaded_file)
-                st.image(image, caption=f"Uploaded Image - Spot {spot_num}", use_column_width=True)
+                st.image(image, caption=f"Uploaded Image - {spot_name}", use_column_width=True)
                 spots[spot_num] = image
 
         elif option == "Use Webcam":
@@ -86,14 +93,14 @@ with col1:
             cap.release()
             if ret:
                 image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-                st.image(image, caption=f"Captured Image - Spot {spot_num}", use_column_width=True)
+                st.image(image, caption=f"Captured Image - {spot_name}", use_column_width=True)
                 spots[spot_num] = image
             else:
-                st.warning(f"Failed to capture an image for Spot {spot_num}")
+                st.warning(f"Failed to capture an image for {spot_name}")
 
         # Process the image dynamically as soon as it's available
         if spots[spot_num]:
-            with st.spinner(f"Processing Spot {spot_num}..."):
+            with st.spinner(f"Processing Spot {spot_name}..."):
                 vehicle_class, plate_image, plate_text = process_image(spots[spot_num])
                 if vehicle_class:
                     # Save detection result
@@ -101,10 +108,10 @@ with col1:
                         "datetime": datetime.now().strftime("%d/%m/%Y %H:%M"),
                         "vehicle_class": vehicle_class,
                         "plate_number": plate_text,
-                        "spot": spot_num
+                        "spot": spot_name
                     })
                     if plate_image is not None:
-                        st.image(plate_image, caption=f"Detected Plate - Spot {spot_num}", use_column_width=True)
+                        st.image(plate_image, caption=f"Detected Plate - {spot_name}", use_column_width=True)
 
 # Right panel for displaying results
 with col2:
