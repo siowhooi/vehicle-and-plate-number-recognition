@@ -61,10 +61,10 @@ col1, col2 = st.columns([2, 3])
 # Left panel for image uploads or webcam captures
 with col1:
     if toll_plaza_type == "Open Toll System":
-        st.header("Open Toll System (Gombak Toll Plaza) and Detected Vehicle")
+        st.header("Open Toll System")
         spots = {1: None}  # Only one spot for Open Toll System
     else:
-        st.header("Closed Toll System (Kuala Lumpur, Penang, Ipoh) and Detected Vehicle")
+        st.header("Closed Toll System")
         spots = {1: None, 2: None, 3: None}  # Three spots for Closed Toll System
 
     results_data = []
