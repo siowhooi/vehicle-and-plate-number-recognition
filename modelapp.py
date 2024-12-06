@@ -12,7 +12,7 @@ model = YOLO(r"best.pt")
 # Initialize EasyOCR reader
 reader = easyocr.Reader(['en'])
 
-# Function to process image and recognize license plate
+# Function to process image and detect vehicle class and license plate
 def process_image(image):
     # Convert PIL Image to OpenCV format
     image_np = np.array(image)
@@ -21,24 +21,32 @@ def process_image(image):
     # Run YOLO inference
     results = model(image_rgb)
 
+    vehicle_class = None
+    plate_image = None
+    plate_text = "No license plate detected"
+
     # Iterate through the detected objects
     for result in results[0].boxes:
         class_id = int(result.cls)
         class_name = model.names[class_id]
 
-        if class_name in ['license_plate', 'license_plate_taxi']:
-            # Extract the bounding box coordinates
-            x1, y1, x2, y2 = map(int, result.xyxy[0])
+        # Detect vehicle class
+        if class_name in [
+            "class0_emergencyVehicle", "class1_lightVehicle",
+            "class2_mediumVehicle", "class3_heavyVehicle",
+            "class4_taxi", "class5_bus"
+        ]:
+            vehicle_class = class_name
 
-            # Crop the license plate from the image
+        # Detect license plate and crop it
+        if class_name in ["license_plate", "license_plate_taxi"]:
+            x1, y1, x2, y2 = map(int, result.xyxy[0])
             plate_image = image_rgb[y1:y2, x1:x2]
 
             # Perform OCR to recognize the text
-            plate_text = reader.readtext(plate_image, detail=0)
+            plate_text = ''.join(reader.readtext(plate_image, detail=0))
 
-            return plate_image, class_name, ''.join(plate_text)
-
-    return None, None, "No license plate detected"
+    return vehicle_class, plate_image, plate_text
 
 # Streamlit app
 st.title("Multi-Spot License Plate Recognition")
@@ -79,8 +87,8 @@ with col1:
         # Process the image dynamically
         if i in spots:
             with st.spinner(f"Processing Spot {i}..."):
-                plate_image, vehicle_class, plate_text = process_image(spots[i])
-                if plate_image is not None:
+                vehicle_class, plate_image, plate_text = process_image(spots[i])
+                if vehicle_class:
                     # Save detection result
                     results_data.append({
                         "datetime": datetime.now().strftime("%d/%m/%Y %H:%M"),
@@ -88,14 +96,8 @@ with col1:
                         "plate_number": plate_text,
                         "spot": i
                     })
-                    st.image(plate_image, caption=f"Detected Plate - Spot {i}", use_column_width=True)
-                else:
-                    results_data.append({
-                        "datetime": datetime.now().strftime("%d/%m/%Y %H:%M"),
-                        "vehicle_class": "N/A",
-                        "plate_number": "No license plate detected",
-                        "spot": i
-                    })
+                    if plate_image is not None:
+                        st.image(plate_image, caption=f"Detected Plate - Spot {i}", use_column_width=True)
 
 # Right panel for displaying results
 with col2:
