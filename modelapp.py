@@ -52,7 +52,7 @@ def process_image(image):
 st.title("Vehicle Class and License Plate Recognition")
 
 # Sidebar for selecting toll plaza type
-toll_plaza_type = st.sidebar.radio("Select Toll Plaza Type", ["Open Toll Plaza", "Closed Toll Plaza"])
+toll_plaza_type = st.sidebar.radio("Select Toll System Types", ["Open Toll System", "Closed Toll System"])
 
 # Layout for two panels
 col1, col2 = st.columns([2, 3])
