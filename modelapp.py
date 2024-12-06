@@ -51,17 +51,24 @@ def process_image(image):
 # Streamlit app
 st.title("Vehicle Class and License Plate Recognition")
 
-# Layout
+# Sidebar for selecting toll plaza type
+toll_plaza_type = st.sidebar.radio("Select Toll Plaza Type", ["Open Toll Plaza", "Closed Toll Plaza"])
+
+# Layout for two panels
 col1, col2 = st.columns([2, 3])
 
 # Left panel for image uploads or webcam captures
 with col1:
-    st.header("Toll Plaza and Detected Vehicle")
+    if toll_plaza_type == "Open Toll Plaza":
+        st.header("Open Toll Plaza and Detected Vehicle")
+    elif toll_plaza_type == "Closed Toll Plaza":
+        st.header("Closed Toll Plaza and Detected Vehicle")
+
     spots = {}
     results_data = []
 
     for i in range(1, 5):
-        st.subheader(f"Gombak Toll Plaza {i}")
+        st.subheader(f"Toll Plaza Spot {i}")
         option = st.radio(f"Detected Vehicle {i}:", ["Upload an Image", "Use Webcam"], key=f"spot_{i}")
 
         if option == "Upload an Image":
@@ -72,19 +79,18 @@ with col1:
                 spots[i] = image
 
         elif option == "Use Webcam":
-            capture = st.button(f"Capture Image for Spot {i}", key=f"capture_{i}")
-            if capture:
-                cap = cv2.VideoCapture(0)  # Use webcam (0)
-                ret, frame = cap.read()
-                cap.release()
-                if ret:
-                    image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-                    st.image(image, caption=f"Captured Image - Spot {i}", use_column_width=True)
-                    spots[i] = image
-                else:
-                    st.warning(f"Failed to capture an image for Spot {i}")
+            # Automatically capture the image
+            cap = cv2.VideoCapture(0)  # Use webcam (0)
+            ret, frame = cap.read()
+            cap.release()
+            if ret:
+                image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+                st.image(image, caption=f"Captured Image - Spot {i}", use_column_width=True)
+                spots[i] = image
+            else:
+                st.warning(f"Failed to capture an image for Spot {i}")
 
-        # Process the image dynamically
+        # Process the image dynamically as soon as it's available
         if i in spots:
             with st.spinner(f"Processing Spot {i}..."):
                 vehicle_class, plate_image, plate_text = process_image(spots[i])
@@ -101,7 +107,7 @@ with col1:
 
 # Right panel for displaying results
 with col2:
-    st.header("Detection")
+    st.header("Detection Results")
     if results_data:
         st.table(results_data)
     else:
