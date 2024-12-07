@@ -13,6 +13,43 @@ model = YOLO(r"best.pt")
 # Initialize EasyOCR reader
 reader = easyocr.Reader(['en'])
 
+# Toll fare rates
+gombak_toll_rates = {
+    "Class 1": 6.00,
+    "Class 2": 12.00,
+    "Class 3": 18.00,
+    "Class 4": 3.00,
+    "Class 5": 5.00
+}
+
+# Other toll fare rates
+other_toll_rates = {
+    ("Jalan Duta, Kuala Lumpur", "Juru, Penang"): {
+        "Class 1": 35.51,
+        "Class 2": 64.90,
+        "Class 3": 86.50,
+        "Class 4": 17.71,
+        "Class 5": 21.15
+    },
+    ("Seremban, Negeri Sembilan", "Jalan Duta, Kuala Lumpur"): {
+        "Class 1": 10.58,
+        "Class 2": 19.50,
+        "Class 3": 29.50,
+        "Class 4": 5.33,
+        "Class 5": 7.95
+    },
+    ("Seremban, Negeri Sembilan", "Juru, Penang"): {
+        "Class 1": 43.95,
+        "Class 2": 80.50,
+        "Class 3": 107.20,
+        "Class 4": 22.06,
+        "Class 5": 30.95
+    }
+}
+
+# Initialize a dictionary to track entry and exit events
+entry_exit_tracker = {}
+
 # Function to process image and recognize license plate
 def process_image(image):
     # Convert PIL Image to OpenCV format
@@ -86,6 +123,9 @@ if option == "Upload an Image":
             }
             vehicle_class_label = class_mapping.get(vehicle_class, "Unknown")
 
+            # Handle toll fare calculation
+            toll_fare = calculate_toll_fare(vehicle_class_label, location)
+            
             # Append result to the DataFrame
             result_data.append({
                 "Datetime": datetime.now().strftime("%d/%m/%Y %H:%M"),
@@ -93,7 +133,7 @@ if option == "Upload an Image":
                 "Plate Number": plate_text,
                 "Toll": location,
                 "Mode": "Entry",  # Assuming "Entry" mode for now, can be adjusted as needed
-                "Toll Fare (RM)": "-"  # Placeholder for toll fare
+                "Toll Fare (RM)": toll_fare
             })
 
         else:
@@ -130,6 +170,9 @@ elif option == "Use Webcam":
                 }
                 vehicle_class_label = class_mapping.get(vehicle_class, "Unknown")
 
+                # Handle toll fare calculation
+                toll_fare = calculate_toll_fare(vehicle_class_label, location)
+                
                 # Append result to the DataFrame
                 result_data.append({
                     "Datetime": datetime.now().strftime("%d/%m/%Y %H:%M"),
@@ -137,7 +180,7 @@ elif option == "Use Webcam":
                     "Plate Number": plate_text,
                     "Toll": location,
                     "Mode": "Entry",  # Assuming "Entry" mode for now, can be adjusted as needed
-                    "Toll Fare (RM)": "-"  # Placeholder for toll fare
+                    "Toll Fare (RM)": toll_fare
                 })
             else:
                 st.warning("No license plate detected in the image.")
@@ -153,3 +196,26 @@ if result_data:
     st.dataframe(df)
 else:
     st.write("No results to display.")
+
+
+# Function to calculate toll fare based on the vehicle class and location
+def calculate_toll_fare(vehicle_class_label, location):
+    if location == "Gombak Toll Plaza":
+        # Fixed rates for Gombak Toll Plaza
+        return gombak_toll_rates.get(vehicle_class_label, 0.00)
+    else:
+        # Dynamic rates for other toll locations
+        entry_exit_key = (location, entry_exit_tracker.get(vehicle_class_label, {}).get("last_location"))
+        
+        # If it's an entry point, store the entry location
+        if entry_exit_key not in other_toll_rates:
+            entry_exit_tracker[vehicle_class_label] = {
+                "last_location": location,
+                "mode": "Entry"
+            }
+            return "-"  # Still waiting for exit to calculate fare
+        else:
+            # It's an exit, calculate toll fare
+            toll_fare = other_toll_rates[entry_exit_key].get(vehicle_class_label, 0.00)
+            entry_exit_tracker[vehicle_class_label] = {"mode": "Exit"}
+            return toll_fare
