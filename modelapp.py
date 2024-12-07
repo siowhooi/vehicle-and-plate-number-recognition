@@ -13,7 +13,7 @@ model = YOLO(r"best.pt")
 # Initialize EasyOCR reader
 reader = easyocr.Reader(['en'])
 
-# Toll fare rates for Gombak Toll Plaza (fixed)
+# Toll fare rates
 gombak_toll_rates = {
     "Class 1": 6.00,
     "Class 2": 12.00,
@@ -22,7 +22,7 @@ gombak_toll_rates = {
     "Class 5": 5.00
 }
 
-# Other toll fare rates (calculated dynamically)
+# Other toll fare rates
 other_toll_rates = {
     ("Jalan Duta, Kuala Lumpur", "Juru, Penang"): {
         "Class 1": 35.51,
@@ -148,7 +148,7 @@ if option == "Upload an Image":
 
         # Display results
         if plate_image is not None:
-            st.image(plate_image, caption="Detected License Plate", use_column_width=True)
+            st.image(plate_image, caption="Detected License Plate", use_column_width=True)  # Show cropped plate image
             # Map vehicle class
             vehicle_class_label = class_mapping.get(vehicle_class, "Unknown")
 
@@ -187,7 +187,7 @@ elif option == "Use Webcam":
 
             # Display results
             if plate_image is not None:
-                st.image(plate_image, caption="Detected License Plate", use_column_width=True)
+                st.image(plate_image, caption="Detected License Plate", use_column_width=True)  # Show cropped plate image
                 # Map vehicle class
                 vehicle_class_label = class_mapping.get(vehicle_class, "Unknown")
 
