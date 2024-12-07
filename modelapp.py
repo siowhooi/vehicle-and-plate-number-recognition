@@ -13,6 +13,40 @@ model = YOLO(r"best.pt")
 # Initialize EasyOCR reader
 reader = easyocr.Reader(['en'])
 
+# Toll rates for Open Toll System (Gombak Toll Plaza)
+open_toll_fare = {
+    "Class 1": 6.00,
+    "Class 2": 12.00,
+    "Class 3": 18.00,
+    "Class 4": 3.00,
+    "Class 5": 5.00
+}
+
+# Toll rates for Closed Toll Systems
+closed_toll_fare = {
+    ("Jalan Duta, Kuala Lumpur", "Juru, Penang"): {
+        "Class 1": 35.51,
+        "Class 2": 64.90,
+        "Class 3": 86.50,
+        "Class 4": 17.71,
+        "Class 5": 21.15
+    },
+    ("Jalan Duta, Kuala Lumpur", "Seremban, Negeri Sembilan"): {
+        "Class 1": 10.58,
+        "Class 2": 19.50,
+        "Class 3": 29.50,
+        "Class 4": 5.33,
+        "Class 5": 7.95
+    },
+    ("Seremban, Negeri Sembilan", "Juru, Penang"): {
+        "Class 1": 43.95,
+        "Class 2": 80.50,
+        "Class 3": 107.20,
+        "Class 4": 22.06,
+        "Class 5": 30.95
+    }
+}
+
 # Function to draw bounding boxes on an image
 def draw_yolo_boxes(image, results, class_mapping):
     image_copy = image.copy()
@@ -88,6 +122,19 @@ def process_image(image):
 
     return vehicle_class, yolo_image, plate_with_boxes, plate_text
 
+# Function to calculate the toll fare
+def calculate_toll_fare(vehicle_class, toll_plaza_type, entry_spot, exit_spot):
+    # If Open Toll System (fixed fare based on class)
+    if toll_plaza_type == "Open Toll System":
+        return open_toll_fare.get(vehicle_class, 0.00)
+    
+    # For Closed Toll System (fare based on entry and exit points)
+    if entry_spot and exit_spot:
+        route_key = (entry_spot, exit_spot)
+        return closed_toll_fare.get(route_key, {}).get(vehicle_class, 0.00)
+
+    return 0.00
+
 # Streamlit app
 st.title("Vehicle Class and License Plate Recognition")
 
@@ -113,6 +160,8 @@ with col1:
         }
 
     results_data = []
+    entry_spot = None
+    exit_spot = None
 
     for spot_num in spots:
         spot_name = spot_names[spot_num]
@@ -144,23 +193,8 @@ with col1:
                     kuala_lumpur_tz = pytz.timezone('Asia/Kuala_Lumpur')
                     current_time = datetime.now(kuala_lumpur_tz).strftime("%d/%m/%Y %H:%M")
 
+                    # Calculate toll fare
+                    toll_fare = calculate_toll_fare(vehicle_class, toll_plaza_type, entry_spot, exit_spot)
+
                     # Save detection result
                     results_data.append({
-                        "Datetime": current_time,
-                        "Vehicle Class": vehicle_class,
-                        "Plate Number": plate_text,
-                        "Toll": spot_name
-                    })
-
-                    st.image(yolo_image, caption=f"Detected Vehicle - {spot_name} with Bounding Boxes", use_column_width=True)
-
-                    if plate_with_boxes is not None:
-                        st.image(plate_with_boxes, caption=f"Detected Plate - {spot_name} with OCR Bounding Boxes", use_column_width=True)
-
-# Right panel for displaying results
-with col2:
-    st.header("Detection Results")
-    if results_data:
-        st.table(results_data)
-    else:
-        st.info("No results available yet. Please upload or capture images.")
