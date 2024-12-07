@@ -136,6 +136,10 @@ def get_toll_fare(vehicle_class, toll_plaza_type, spot_from, spot_to):
 # Streamlit app
 st.title("Vehicle Class and License Plate Recognition")
 
+# Initialize session state to store results data
+if 'results_data' not in st.session_state:
+    st.session_state.results_data = []
+
 # Layout for two panels
 col1, col2 = st.columns([2, 3])
 
@@ -149,7 +153,6 @@ with col1:
     ]
     toll_plaza_selection = st.selectbox("Select Toll Plaza", toll_plaza_options)
 
-    results_data = []
     spots = {1: None}  # One spot for all toll plazas now
     spot_name = toll_plaza_selection
 
@@ -198,7 +201,7 @@ with col1:
                         toll_fare = "-"
                 
                 # Save detection result
-                results_data.append({
+                st.session_state.results_data.append({
                     "Datetime": current_time,
                     "Vehicle Class": vehicle_class,
                     "Plate Number": plate_text,
@@ -219,7 +222,7 @@ with col1:
 # Right panel for displaying results
 with col2:
     st.header("Detection Results")
-    if results_data:
-        st.table(results_data)
+    if st.session_state.results_data:
+        st.table(st.session_state.results_data)
     else:
         st.info("No results available yet. Please upload or capture images.")
