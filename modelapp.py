@@ -142,10 +142,13 @@ toll_plaza_type = st.sidebar.radio("Select Toll System", ["Open Toll System", "C
 # Layout for two panels
 col1, col2 = st.columns([2, 3])
 
-# Initialize session state to store the entry spot
+# Initialize session state to store the entry spot and results list
 if "entry_spot" not in st.session_state:
     st.session_state.entry_spot = None
     st.session_state.entry_class = None
+
+if "results_data" not in st.session_state:
+    st.session_state.results_data = []
 
 # Left panel for image uploads or webcam captures
 with col1:
@@ -161,8 +164,6 @@ with col1:
             2: "Seremban, Negeri Sembilan",
             3: "Juru, Penang"
         }
-
-    results_data = []
 
     for spot_num in spots:
         spot_name = spot_names[spot_num]
@@ -200,7 +201,7 @@ with col1:
                     # Prepare result for entry/exit mode
                     if toll_plaza_type == "Closed Toll System":
                         if st.session_state.entry_spot is None:
-                            results_data.append({
+                            st.session_state.results_data.append({
                                 "Datetime": current_time,
                                 "Vehicle Class": vehicle_class,
                                 "Plate Number": plate_text,
@@ -212,36 +213,37 @@ with col1:
                             st.session_state.entry_spot = spot_name
                             st.session_state.entry_class = vehicle_class
                         else:
-                            results_data.append({
+                            st.session_state.results_data.append({
                                 "Datetime": current_time,
                                 "Vehicle Class": vehicle_class,
                                 "Plate Number": plate_text,
                                 "Toll": spot_name,
                                 "Mode": "Exit",
-                                "Toll Fare (RM)": f"{toll_fare:.2f}"
+                                "Toll Fare (RM)": toll_fare
                             })
-                            # Reset entry spot after exit
+                            # Clear entry spot after exit
                             st.session_state.entry_spot = None
                             st.session_state.entry_class = None
                     else:
-                        # Save for Open Toll System
-                        results_data.append({
+                        st.session_state.results_data.append({
                             "Datetime": current_time,
                             "Vehicle Class": vehicle_class,
                             "Plate Number": plate_text,
                             "Toll": spot_name,
-                            "Toll Fare (RM)": f"{toll_fare:.2f}"
+                            "Toll Fare (RM)": toll_fare
                         })
 
-                    st.image(yolo_image, caption=f"Detected Vehicle - {spot_name} with Bounding Boxes", use_column_width=True)
+                    # Show images with bounding boxes
+                    if yolo_image is not None:
+                        st.image(yolo_image, caption=f"Detected Vehicle - {spot_name}", use_column_width=True)
 
                     if plate_with_boxes is not None:
-                        st.image(plate_with_boxes, caption=f"Detected Plate - {spot_name} with OCR Bounding Boxes", use_column_width=True)
+                        st.image(plate_with_boxes, caption=f"Detected Plate - {spot_name}", use_column_width=True)
 
 # Right panel for displaying results
 with col2:
     st.header("Detection Results")
-    if results_data:
-        st.table(results_data)
+    if st.session_state.results_data:
+        st.table(st.session_state.results_data)
     else:
         st.info("No results available yet. Please upload or capture images.")
