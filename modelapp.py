@@ -13,7 +13,7 @@ model = YOLO(r"best.pt")
 # Initialize EasyOCR reader
 reader = easyocr.Reader(['en'])
 
-# Toll fare rates
+# Toll fare rates for Gombak Toll Plaza (fixed)
 gombak_toll_rates = {
     "Class 1": 6.00,
     "Class 2": 12.00,
@@ -22,7 +22,7 @@ gombak_toll_rates = {
     "Class 5": 5.00
 }
 
-# Other toll fare rates
+# Other toll fare rates (calculated dynamically)
 other_toll_rates = {
     ("Jalan Duta, Kuala Lumpur", "Juru, Penang"): {
         "Class 1": 35.51,
