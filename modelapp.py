@@ -136,7 +136,7 @@ def get_toll_fare(vehicle_class, toll_plaza, spot_from, spot_to):
 # Streamlit app
 st.title("Vehicle Class and License Plate Recognition")
 
-# Toll plaza selection (no sidebar)
+# Toll plaza selection
 toll_plaza = st.selectbox("Select Toll Plaza", [
     "Gombak Toll Plaza",
     "Jalan Duta, Kuala Lumpur",
@@ -151,6 +151,7 @@ col1, col2 = st.columns([2, 3])
 if "entry_spot" not in st.session_state:
     st.session_state.entry_spot = None
     st.session_state.entry_class = None
+    st.session_state.entry_time = None
 
 # Left panel for image uploads or webcam captures
 with col1:
@@ -191,16 +192,19 @@ with col1:
                     current_time = datetime.now(kuala_lumpur_tz).strftime("%d/%m/%Y %H:%M")
 
                     # Determine mode (Entry or Exit)
-                    mode = "Entry" if st.session_state.entry_spot is None else "Exit"
-
-                    # Calculate toll fare
+                    mode = "Entry"
                     toll_fare = "-"
-                    if toll_plaza == "Gombak Toll Plaza":
-                        toll_fare = get_toll_fare(vehicle_class, toll_plaza, "", "")
+
+                    if st.session_state.entry_spot is None:
+                        # Store entry details if it's the first time
+                        st.session_state.entry_spot = spot_name
+                        st.session_state.entry_class = vehicle_class
+                        st.session_state.entry_time = current_time
                     else:
-                        if mode == "Exit":
-                            toll_fare = get_toll_fare(vehicle_class, toll_plaza, st.session_state.entry_spot, spot_name)
-                            st.session_state.entry_spot = None  # Reset entry after exit
+                        # Calculate toll fare for Exit
+                        toll_fare = get_toll_fare(vehicle_class, toll_plaza, st.session_state.entry_spot, spot_name)
+                        mode = "Exit"
+                        st.session_state.entry_spot = None  # Reset entry after exit
 
                     # Save detection result
                     results_data.append({
@@ -211,6 +215,8 @@ with col1:
                         "Mode": mode,
                         "Toll Fare (RM)": toll_fare
                     })
+
+                    # Display the images
                     if yolo_image is not None:
                         st.image(yolo_image, caption=f"Detected Vehicle - {spot_name} with Bounding Boxes", use_column_width=True)
 
