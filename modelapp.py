@@ -136,9 +136,12 @@ def get_toll_fare(vehicle_class, toll_plaza_type, spot_from, spot_to):
 # Streamlit app
 st.title("Vehicle Class and License Plate Recognition")
 
-# Initialize session state to store results data
+# Initialize session state to store results data and entry/exit tracking
 if 'results_data' not in st.session_state:
     st.session_state.results_data = []
+
+if 'entry_vehicles' not in st.session_state:
+    st.session_state.entry_vehicles = {}
 
 # Layout for two panels
 col1, col2 = st.columns([2, 3])
@@ -187,19 +190,19 @@ with col1:
                 current_time = datetime.now(kuala_lumpur_tz).strftime("%d/%m/%Y %H:%M")
 
                 # Determine mode (Entry or Exit)
-                mode = "Entry" if spot_name not in st.session_state else "Exit"
-                
-                # Calculate toll fare
+                mode = "Entry"
                 toll_fare = "-"
-                if spot_name == "Gombak Toll Plaza":  # Open Toll System
-                    toll_fare = get_toll_fare(vehicle_class, "Open Toll System", "", "")
-                else:  # Closed Toll System
-                    if mode == "Exit":
-                        toll_fare = get_toll_fare(vehicle_class, "Closed Toll System", st.session_state.entry_spot, spot_name)
-                        st.session_state.entry_spot = None  # Reset entry after exit
-                    else:
-                        toll_fare = "-"
-                
+                if plate_text in st.session_state.entry_vehicles:
+                    # If the vehicle already entered, this is an exit
+                    mode = "Exit"
+                    spot_from = st.session_state.entry_vehicles[plate_text]
+                    toll_fare = get_toll_fare(vehicle_class, "Closed Toll System", spot_from, spot_name)
+                    # Reset entry after exit
+                    del st.session_state.entry_vehicles[plate_text]
+                else:
+                    # Mark as entry
+                    st.session_state.entry_vehicles[plate_text] = spot_name
+
                 # Save detection result
                 st.session_state.results_data.append({
                     "Datetime": current_time,
@@ -207,17 +210,10 @@ with col1:
                     "Plate Number": plate_text,
                     "Toll": spot_name,
                     "Mode": mode,
-                    "Toll Fare (RM)": f"{toll_fare:.2f}" if toll_fare != "-" else "-"
+                    "Toll Fare (RM)": toll_fare
                 })
-
-                # Update session state for entry/exit
-                if spot_name not in st.session_state:
-                    st.session_state.entry_spot = spot_name
-
-                st.image(yolo_image, caption=f"Detected Vehicle - {spot_name} with Bounding Boxes", use_column_width=True)
-
                 if plate_with_boxes is not None:
-                    st.image(plate_with_boxes, caption=f"Detected Plate - {spot_name} with OCR Bounding Boxes", use_column_width=True)
+                    st.image(plate_with_boxes, caption=f"Detected Plate - {spot_name}", use_column_width=True)
 
 # Right panel for displaying results
 with col2:
