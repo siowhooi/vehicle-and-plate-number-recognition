@@ -123,7 +123,6 @@ with col1:
             uploaded_file = st.file_uploader(f"Upload image for {spot_name}", type=["jpg", "jpeg", "png"], key=f"file_{spot_num}")
             if uploaded_file is not None:
                 image = Image.open(uploaded_file)
-                st.image(image, caption=f"Uploaded Image - {spot_name}", use_column_width=True)
                 spots[spot_num] = image
 
         elif option == "Use Camera":
@@ -132,7 +131,6 @@ with col1:
             cap.release()
             if ret:
                 image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-                st.image(image, caption=f"Captured Image - {spot_name}", use_column_width=True)
                 spots[spot_num] = image
             else:
                 st.warning(f"Failed to capture an image for {spot_name}")
