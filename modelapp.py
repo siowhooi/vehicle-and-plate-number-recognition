@@ -94,9 +94,10 @@ def process_image(image):
     # Iterate through the detected objects
     for result in results[0].boxes:
         class_id = int(result.cls)
-        class_name = model.names[class_id]
-
-        if class_name in ['license_plate', 'license_plate_taxi']:
+        class_name = model.names[class_id]  # Get the class name from the model
+        
+        # Check if the class name is in the mapping
+        if class_name in class_mapping:
             # Extract the bounding box coordinates
             x1, y1, x2, y2 = map(int, result.xyxy[0])
 
@@ -106,6 +107,7 @@ def process_image(image):
             # Perform OCR to recognize the text
             plate_text = reader.readtext(plate_image, detail=0)
 
+            # Return detected plate and class
             return plate_image, ''.join(plate_text), class_name
 
     return None, "No license plate detected", None
