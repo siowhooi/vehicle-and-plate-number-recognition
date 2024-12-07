@@ -60,7 +60,7 @@ def process_image(image):
 st.title("Vehicle Class and License Plate Recognition")
 
 # Sidebar for selecting toll plaza type
-toll_plaza_type = st.sidebar.radio("Select Toll System Types", ["Open Toll System", "Closed Toll System"])
+toll_plaza_type = st.sidebar.radio("Select Toll System", ["Open Toll System", "Closed Toll System"])
 
 # Layout for two panels
 col1, col2 = st.columns([2, 3])
@@ -85,18 +85,18 @@ with col1:
     for spot_num in spots:
         spot_name = spot_names[spot_num]
         st.subheader(f"{spot_name}")
-        option = st.radio(f"Detected Vehicle at {spot_name}:", ["Upload an Image", "Use Webcam"], key=f"spot_{spot_num}")
+        option = st.radio(f"Select Detect Option:", ["Upload an Image", "Use Camera"], key=f"spot_{spot_num}")
 
         if option == "Upload an Image":
             uploaded_file = st.file_uploader(f"Upload image for {spot_name}", type=["jpg", "jpeg", "png"], key=f"file_{spot_num}")
             if uploaded_file is not None:
                 image = Image.open(uploaded_file)
-                st.image(image, caption=f"Uploaded Image - {spot_name}", use_column_width=True)
+                st.image(image, caption=f"Detected Vehicle - {spot_name}", use_column_width=True)
                 spots[spot_num] = image
 
-        elif option == "Use Webcam":
+        elif option == "Use Camera":
             # Automatically capture the image
-            cap = cv2.VideoCapture(0)  # Use webcam (0)
+            cap = cv2.VideoCapture(0)  
             ret, frame = cap.read()
             cap.release()
             if ret:
@@ -117,10 +117,10 @@ with col1:
 
                     # Save detection result
                     results_data.append({
-                        "datetime": current_time,
-                        "vehicle_class": vehicle_class,
-                        "plate_number": plate_text,
-                        "spot": spot_name
+                        "Datetime": current_time,
+                        "Vehicle Class": vehicle_class,
+                        "Plate Number": plate_text,
+                        "Toll": spot_name
                     })
                     if plate_image is not None:
                         st.image(plate_image, caption=f"Detected Plate - {spot_name}", use_column_width=True)
