@@ -18,6 +18,7 @@ def process_image(image):
     # Convert PIL Image to OpenCV format
     image_np = np.array(image)
     image_rgb = cv2.cvtColor(image_np, cv2.COLOR_BGR2RGB)
+    image_copy = image_rgb.copy()  # Copy for drawing bounding boxes
 
     # Run YOLO inference
     results = model(image_rgb)
@@ -30,6 +31,7 @@ def process_image(image):
     for result in results[0].boxes:
         class_id = int(result.cls)
         class_name = model.names[class_id]
+        x1, y1, x2, y2 = map(int, result.xyxy[0])
 
         # Detect vehicle class
         if class_name in [
@@ -46,15 +48,26 @@ def process_image(image):
                 "class5_bus": "Class 5"
             }.get(class_name)
 
+            # Draw bounding box for the vehicle
+            cv2.rectangle(image_copy, (x1, y1), (x2, y2), (0, 255, 0), 2)
+            cv2.putText(image_copy, vehicle_class, (x1, y1 - 10),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+
         # Detect license plate and crop it
         if class_name in ["license_plate", "license_plate_taxi"]:
-            x1, y1, x2, y2 = map(int, result.xyxy[0])
             plate_image = image_rgb[y1:y2, x1:x2]
+
+            # Draw bounding box for the license plate
+            cv2.rectangle(image_copy, (x1, y1), (x2, y2), (255, 0, 0), 2)
+            cv2.putText(image_copy, "Plate", (x1, y1 - 10),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
 
             # Perform OCR to recognize the text
             plate_text = ''.join(reader.readtext(plate_image, detail=0))
 
-    return vehicle_class, plate_image, plate_text
+    # Convert the image back to PIL format for Streamlit display
+    processed_image = Image.fromarray(cv2.cvtColor(image_copy, cv2.COLOR_BGR2RGB))
+    return vehicle_class, plate_image, plate_text, processed_image
 
 # Streamlit app
 st.title("Vehicle Class and License Plate Recognition")
@@ -91,12 +104,12 @@ with col1:
             uploaded_file = st.file_uploader(f"Upload image for {spot_name}", type=["jpg", "jpeg", "png"], key=f"file_{spot_num}")
             if uploaded_file is not None:
                 image = Image.open(uploaded_file)
-                st.image(image, caption=f"Detected Vehicle - {spot_name}", use_column_width=True)
+                st.image(image, caption=f"Uploaded Image - {spot_name}", use_column_width=True)
                 spots[spot_num] = image
 
         elif option == "Use Camera":
             # Automatically capture the image
-            cap = cv2.VideoCapture(0)  
+            cap = cv2.VideoCapture(0)
             ret, frame = cap.read()
             cap.release()
             if ret:
@@ -109,7 +122,7 @@ with col1:
         # Process the image dynamically as soon as it's available
         if spots[spot_num]:
             with st.spinner(f"Processing Spot {spot_name}..."):
-                vehicle_class, plate_image, plate_text = process_image(spots[spot_num])
+                vehicle_class, plate_image, plate_text, processed_image = process_image(spots[spot_num])
                 if vehicle_class:
                     # Get current time in Asia/Kuala_Lumpur timezone
                     kuala_lumpur_tz = pytz.timezone('Asia/Kuala_Lumpur')
@@ -122,8 +135,9 @@ with col1:
                         "Plate Number": plate_text,
                         "Toll": spot_name
                     })
-                    if plate_image is not None:
-                        st.image(plate_image, caption=f"Detected Plate - {spot_name}", use_column_width=True)
+
+                    # Display YOLO-processed image
+                    st.image(processed_image, caption=f"YOLO Detection - {spot_name}", use_column_width=True)
 
 # Right panel for displaying results
 with col2:
