@@ -50,6 +50,38 @@ other_toll_rates = {
 # Initialize a dictionary to track entry and exit events
 entry_exit_tracker = {}
 
+# Class mapping for vehicle classes
+class_mapping = {
+    "class0_emergencyVehicle": "Class 0",
+    "class1_lightVehicle": "Class 1",
+    "class2_mediumVehicle": "Class 2",
+    "class3_heavyVehicle": "Class 3",
+    "class4_taxi": "Class 4",
+    "class5_bus": "Class 5"
+}
+
+# Function to calculate toll fare based on the vehicle class and location
+def calculate_toll_fare(vehicle_class_label, location):
+    if location == "Gombak Toll Plaza":
+        # Fixed rates for Gombak Toll Plaza
+        return gombak_toll_rates.get(vehicle_class_label, 0.00)
+    else:
+        # Dynamic rates for other toll locations
+        entry_exit_key = (location, entry_exit_tracker.get(vehicle_class_label, {}).get("last_location"))
+        
+        # If it's an entry point, store the entry location
+        if entry_exit_key not in other_toll_rates:
+            entry_exit_tracker[vehicle_class_label] = {
+                "last_location": location,
+                "mode": "Entry"
+            }
+            return "-"  # Still waiting for exit to calculate fare
+        else:
+            # It's an exit, calculate toll fare
+            toll_fare = other_toll_rates[entry_exit_key].get(vehicle_class_label, 0.00)
+            entry_exit_tracker[vehicle_class_label] = {"mode": "Exit"}
+            return toll_fare
+
 # Function to process image and recognize license plate
 def process_image(image):
     # Convert PIL Image to OpenCV format
@@ -113,14 +145,6 @@ if option == "Upload an Image":
         if plate_image is not None:
             st.image(plate_image, caption="Detected License Plate", use_column_width=True)
             # Map vehicle class
-            class_mapping = {
-                "class0_emergencyVehicle": "Class 0",
-                "class1_lightVehicle": "Class 1",
-                "class2_mediumVehicle": "Class 2",
-                "class3_heavyVehicle": "Class 3",
-                "class4_taxi": "Class 4",
-                "class5_bus": "Class 5"
-            }
             vehicle_class_label = class_mapping.get(vehicle_class, "Unknown")
 
             # Handle toll fare calculation
@@ -160,14 +184,6 @@ elif option == "Use Webcam":
             if plate_image is not None:
                 st.image(plate_image, caption="Detected License Plate", use_column_width=True)
                 # Map vehicle class
-                class_mapping = {
-                    "class0_emergencyVehicle": "Class 0",
-                    "class1_lightVehicle": "Class 1",
-                    "class2_mediumVehicle": "Class 2",
-                    "class3_heavyVehicle": "Class 3",
-                    "class4_taxi": "Class 4",
-                    "class5_bus": "Class 5"
-                }
                 vehicle_class_label = class_mapping.get(vehicle_class, "Unknown")
 
                 # Handle toll fare calculation
@@ -196,26 +212,3 @@ if result_data:
     st.dataframe(df)
 else:
     st.write("No results to display.")
-
-
-# Function to calculate toll fare based on the vehicle class and location
-def calculate_toll_fare(vehicle_class_label, location):
-    if location == "Gombak Toll Plaza":
-        # Fixed rates for Gombak Toll Plaza
-        return gombak_toll_rates.get(vehicle_class_label, 0.00)
-    else:
-        # Dynamic rates for other toll locations
-        entry_exit_key = (location, entry_exit_tracker.get(vehicle_class_label, {}).get("last_location"))
-        
-        # If it's an entry point, store the entry location
-        if entry_exit_key not in other_toll_rates:
-            entry_exit_tracker[vehicle_class_label] = {
-                "last_location": location,
-                "mode": "Entry"
-            }
-            return "-"  # Still waiting for exit to calculate fare
-        else:
-            # It's an exit, calculate toll fare
-            toll_fare = other_toll_rates[entry_exit_key].get(vehicle_class_label, 0.00)
-            entry_exit_tracker[vehicle_class_label] = {"mode": "Exit"}
-            return toll_fare
