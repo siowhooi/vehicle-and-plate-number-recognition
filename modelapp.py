@@ -89,7 +89,7 @@ def process_image(image):
     return vehicle_class, yolo_image, plate_with_boxes, plate_text
 
 # Function to get toll fare based on the vehicle class
-def get_toll_fare(vehicle_class, toll_plaza_type, spot_from, spot_to):
+def get_toll_fare(vehicle_class, toll_plaza, spot_from, spot_to):
     # Toll rates for Open Toll System (Fixed)
     open_toll_fares = {
         "Class 1": 6.00,
@@ -125,7 +125,7 @@ def get_toll_fare(vehicle_class, toll_plaza_type, spot_from, spot_to):
         }
     }
 
-    if toll_plaza_type == "Open Toll System":
+    if toll_plaza in open_toll_fares:
         return open_toll_fares.get(vehicle_class, 0.00)
 
     # For Closed Toll System, calculate fare based on entry and exit points
@@ -136,8 +136,13 @@ def get_toll_fare(vehicle_class, toll_plaza_type, spot_from, spot_to):
 # Streamlit app
 st.title("Vehicle Class and License Plate Recognition")
 
-# Sidebar for selecting toll plaza type
-toll_plaza_type = st.sidebar.radio("Select Toll System", ["Open Toll System", "Closed Toll System"])
+# Toll plaza selection (no sidebar)
+toll_plaza = st.selectbox("Select Toll Plaza", [
+    "Gombak Toll Plaza",
+    "Jalan Duta, Kuala Lumpur",
+    "Seremban, Negeri Sembilan",
+    "Juru, Penang"
+])
 
 # Layout for two panels
 col1, col2 = st.columns([2, 3])
@@ -149,18 +154,9 @@ if "entry_spot" not in st.session_state:
 
 # Left panel for image uploads or webcam captures
 with col1:
-    if toll_plaza_type == "Open Toll System":
-        st.header("Open Toll System")
-        spots = {1: None}  # Only one spot for Open Toll System
-        spot_names = {1: "Gombak Toll Plaza"}
-    else:
-        st.header("Closed Toll System")
-        spots = {1: None, 2: None, 3: None}  # Three spots for Closed Toll System
-        spot_names = {
-            1: "Jalan Duta, Kuala Lumpur",
-            2: "Seremban, Negeri Sembilan",
-            3: "Juru, Penang"
-        }
+    st.header(f"Selected Toll Plaza: {toll_plaza}")
+    spots = {1: None}  # Only one spot for selection
+    spot_names = {1: toll_plaza}
 
     results_data = []
 
@@ -199,11 +195,11 @@ with col1:
 
                     # Calculate toll fare
                     toll_fare = "-"
-                    if toll_plaza_type == "Open Toll System":
-                        toll_fare = get_toll_fare(vehicle_class, toll_plaza_type, "", "")
+                    if toll_plaza == "Gombak Toll Plaza":
+                        toll_fare = get_toll_fare(vehicle_class, toll_plaza, "", "")
                     else:
                         if mode == "Exit":
-                            toll_fare = get_toll_fare(vehicle_class, toll_plaza_type, st.session_state.entry_spot, spot_name)
+                            toll_fare = get_toll_fare(vehicle_class, toll_plaza, st.session_state.entry_spot, spot_name)
                             st.session_state.entry_spot = None  # Reset entry after exit
 
                     # Save detection result
@@ -213,15 +209,10 @@ with col1:
                         "Plate Number": plate_text,
                         "Toll": spot_name,
                         "Mode": mode,
-                        "Toll Fare (RM)": f"{toll_fare:.2f}" if toll_fare != "-" else "-"
+                        "Toll Fare (RM)": toll_fare
                     })
-
-                    # Update session state for entry/exit
-                    if toll_plaza_type == "Closed Toll System" and st.session_state.entry_spot is None:
-                        st.session_state.entry_spot = spot_name
-                        st.session_state.entry_class = vehicle_class
-
-                    st.image(yolo_image, caption=f"Detected Vehicle - {spot_name} with Bounding Boxes", use_column_width=True)
+                    if yolo_image is not None:
+                        st.image(yolo_image, caption=f"Detected Vehicle - {spot_name} with Bounding Boxes", use_column_width=True)
 
                     if plate_with_boxes is not None:
                         st.image(plate_with_boxes, caption=f"Detected Plate - {spot_name} with OCR Bounding Boxes", use_column_width=True)
