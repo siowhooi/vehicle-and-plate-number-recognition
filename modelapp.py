@@ -4,39 +4,16 @@ import easyocr
 import cv2
 import numpy as np
 from PIL import Image
+import pandas as pd
 from datetime import datetime
-import pytz
 
 # Load YOLO model
-model = YOLO(r"best.pt")
+model = YOLO(r"best.pt")  
 
 # Initialize EasyOCR reader
 reader = easyocr.Reader(['en'])
 
-# Function to draw bounding boxes on an image
-def draw_yolo_boxes(image, results, class_mapping):
-    image_copy = image.copy()
-    for result in results[0].boxes:
-        class_id = int(result.cls)
-        class_name = model.names[class_id]
-        if class_name in class_mapping or class_name in ["license_plate", "license_plate_taxi"]:
-            x1, y1, x2, y2 = map(int, result.xyxy[0])
-            color = (0, 255, 0) if class_name in class_mapping else (0, 0, 255)  # Green for vehicles, red for plates
-            label = class_mapping.get(class_name, class_name)
-            cv2.rectangle(image_copy, (x1, y1), (x2, y2), color, 2)
-            cv2.putText(image_copy, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
-    return image_copy
-
-# Function to draw OCR bounding boxes
-def draw_ocr_boxes(plate_image, ocr_results):
-    plate_copy = plate_image.copy()
-    for (bbox, text, prob) in ocr_results:
-        (x_min, y_min), (x_max, y_max) = bbox[0], bbox[2]
-        cv2.rectangle(plate_copy, (int(x_min), int(y_min)), (int(x_max), int(y_max)), (0, 255, 0), 2)
-        cv2.putText(plate_copy, text, (int(x_min), int(y_min) - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-    return plate_copy
-
-# Function to process image and detect vehicle class and license plate
+# Function to process image and recognize license plate
 def process_image(image):
     # Convert PIL Image to OpenCV format
     image_np = np.array(image)
@@ -45,180 +22,134 @@ def process_image(image):
     # Run YOLO inference
     results = model(image_rgb)
 
-    vehicle_class = None
-    plate_image = None
-    plate_text = "No license plate detected"
-    ocr_results = []
-
-    # Mapping YOLO class names to human-readable class labels
-    class_mapping = {
-        "class0_emergencyVehicle": "Class 0",
-        "class1_lightVehicle": "Class 1",
-        "class2_mediumVehicle": "Class 2",
-        "class3_heavyVehicle": "Class 3",
-        "class4_taxi": "Class 4",
-        "class5_bus": "Class 5"
-    }
-
-    # Draw bounding boxes for YOLO detections
-    yolo_image = draw_yolo_boxes(image_rgb, results, class_mapping)
-
     # Iterate through the detected objects
     for result in results[0].boxes:
         class_id = int(result.cls)
         class_name = model.names[class_id]
 
-        # Detect vehicle class
-        if class_name in class_mapping:
-            vehicle_class = class_mapping[class_name]
-
-        # Detect license plate and crop it
-        if class_name in ["license_plate", "license_plate_taxi"]:
+        if class_name in ['license_plate', 'license_plate_taxi']:
+            # Extract the bounding box coordinates
             x1, y1, x2, y2 = map(int, result.xyxy[0])
+
+            # Crop the license plate from the image
             plate_image = image_rgb[y1:y2, x1:x2]
 
             # Perform OCR to recognize the text
-            ocr_results = reader.readtext(plate_image)
-            plate_text = ' '.join([text for (_, text, _) in ocr_results])
+            plate_text = reader.readtext(plate_image, detail=0)
 
-    # Draw OCR bounding boxes on the cropped plate image
-    plate_with_boxes = None
-    if plate_image is not None:
-        plate_with_boxes = draw_ocr_boxes(plate_image, ocr_results)
+            return plate_image, ''.join(plate_text), class_name
 
-    return vehicle_class, yolo_image, plate_with_boxes, plate_text
+    return None, "No license plate detected", None
 
-# Function to get toll fare based on the vehicle class
-def get_toll_fare(vehicle_class, toll_plaza_type, spot_from, spot_to):
-    # Toll rates for Open Toll System (Fixed)
-    open_toll_fares = {
-        "Class 1": 6.00,
-        "Class 2": 12.00,
-        "Class 3": 18.00,
-        "Class 4": 3.00,
-        "Class 5": 5.00,
-        "Class 0": 0.00
-    }
-
-    # Toll rates for Closed Toll System (Distance-based)
-    closed_toll_fares = {
-        ("Jalan Duta, Kuala Lumpur", "Juru, Penang"): {
-            "Class 1": 35.51,
-            "Class 2": 64.90,
-            "Class 3": 86.50,
-            "Class 4": 17.71,
-            "Class 5": 21.15
-        },
-        ("Jalan Duta, Kuala Lumpur", "Seremban, Negeri Sembilan"): {
-            "Class 1": 10.58,
-            "Class 2": 19.50,
-            "Class 3": 29.50,
-            "Class 4": 5.33,
-            "Class 5": 7.95
-        },
-        ("Seremban, Negeri Sembilan", "Juru, Penang"): {
-            "Class 1": 43.95,
-            "Class 2": 80.50,
-            "Class 3": 107.20,
-            "Class 4": 22.06,
-            "Class 5": 30.95
-        }
-    }
-
-    if toll_plaza_type == "Open Toll System":
-        return open_toll_fares.get(vehicle_class, 0.00)
-
-    # For Closed Toll System, calculate fare based on entry and exit points
-    if (spot_from, spot_to) in closed_toll_fares:
-        return closed_toll_fares[(spot_from, spot_to)].get(vehicle_class, 0.00)
-    return 0.00
+# Create a DataFrame to store results
+result_data = []
 
 # Streamlit app
-st.title("Vehicle Class and License Plate Recognition")
+st.title("License Plate Recognition")
 
-# Initialize session state to store results data and entry/exit tracking
-if 'results_data' not in st.session_state:
-    st.session_state.results_data = []
+# Left interface (location and image selection)
+st.subheader("Location and Image Capture")
 
-if 'entry_vehicles' not in st.session_state:
-    st.session_state.entry_vehicles = {}
+# Location selection
+location = st.selectbox("Select Toll Location", [
+    "Gombak Toll Plaza", 
+    "Jalan Duta, Kuala Lumpur", 
+    "Seremban, Negeri Sembilan", 
+    "Juru, Penang"
+])
 
-# Layout for two panels
-col1, col2 = st.columns([2, 3])
+# Image upload or webcam capture
+option = st.radio("Choose Input Method:", ("Upload an Image", "Use Webcam"))
 
-# Select the toll plaza directly in col1
-with col1:
-    toll_plaza_options = [
-        "Gombak Toll Plaza", 
-        "Jalan Duta, Kuala Lumpur", 
-        "Seremban, Negeri Sembilan", 
-        "Juru, Penang"
-    ]
-    toll_plaza_selection = st.selectbox("Select Toll Plaza", toll_plaza_options)
+if option == "Upload an Image":
+    uploaded_file = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png"])
+    if uploaded_file is not None:
+        # Display uploaded image
+        image = Image.open(uploaded_file)
+        st.image(image, caption="Uploaded Image", use_column_width=True)
 
-    spots = {1: None}  # One spot for all toll plazas now
-    spot_name = toll_plaza_selection
+        # Process the image
+        with st.spinner("Processing..."):
+            plate_image, plate_text, vehicle_class = process_image(image)
 
-    st.subheader(f"{spot_name}")
+        # Display results
+        if plate_image is not None:
+            st.image(plate_image, caption="Detected License Plate", use_column_width=True)
+            # Map vehicle class
+            class_mapping = {
+                "class0_emergencyVehicle": "Class 0",
+                "class1_lightVehicle": "Class 1",
+                "class2_mediumVehicle": "Class 2",
+                "class3_heavyVehicle": "Class 3",
+                "class4_taxi": "Class 4",
+                "class5_bus": "Class 5"
+            }
+            vehicle_class_label = class_mapping.get(vehicle_class, "Unknown")
 
-    # Image upload or camera options
-    option = st.radio(f"Select Detection Option:", ["Upload an Image", "Use Camera"])
+            # Append result to the DataFrame
+            result_data.append({
+                "Datetime": datetime.now().strftime("%d/%m/%Y %H:%M"),
+                "Vehicle Class": vehicle_class_label,
+                "Plate Number": plate_text,
+                "Toll": location,
+                "Mode": "Entry",  # Assuming "Entry" mode for now, can be adjusted as needed
+                "Toll Fare (RM)": "-"  # Placeholder for toll fare
+            })
 
-    if option == "Upload an Image":
-        uploaded_file = st.file_uploader(f"Upload image for {spot_name}", type=["jpg", "jpeg", "png"])
-        if uploaded_file is not None:
-            image = Image.open(uploaded_file)
-            spots[1] = image
-
-    elif option == "Use Camera":
-        cap = cv2.VideoCapture(0)  
+        else:
+            st.warning("No license plate detected in the image.")
+elif option == "Use Webcam":
+    # Webcam capture
+    run = st.button("Start Webcam")
+    if run:
+        # Open webcam and capture a frame
+        cap = cv2.VideoCapture(0)  # Use webcam (0)
         ret, frame = cap.read()
         cap.release()
+
         if ret:
+            # Convert to PIL format
             image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-            spots[1] = image
-        else:
-            st.warning(f"Failed to capture an image for {spot_name}")
+            st.image(image, caption="Captured Image", use_column_width=True)
 
-    # Process the image dynamically as soon as it's available
-    if spots[1]:
-        with st.spinner(f"Processing Spot {spot_name}..."):
-            vehicle_class, yolo_image, plate_with_boxes, plate_text = process_image(spots[1])
-            if vehicle_class:
-                # Get current time in Asia/Kuala_Lumpur timezone
-                kuala_lumpur_tz = pytz.timezone('Asia/Kuala_Lumpur')
-                current_time = datetime.now(kuala_lumpur_tz).strftime("%d/%m/%Y %H:%M")
+            # Process the image
+            with st.spinner("Processing..."):
+                plate_image, plate_text, vehicle_class = process_image(image)
 
-                # Determine mode (Entry or Exit)
-                mode = "Entry"
-                toll_fare = "-"
-                if plate_text in st.session_state.entry_vehicles:
-                    # If the vehicle already entered, this is an exit
-                    mode = "Exit"
-                    spot_from = st.session_state.entry_vehicles[plate_text]
-                    toll_fare = get_toll_fare(vehicle_class, "Closed Toll System", spot_from, spot_name)
-                    # Reset entry after exit
-                    del st.session_state.entry_vehicles[plate_text]
-                else:
-                    # Mark as entry
-                    st.session_state.entry_vehicles[plate_text] = spot_name
+            # Display results
+            if plate_image is not None:
+                st.image(plate_image, caption="Detected License Plate", use_column_width=True)
+                # Map vehicle class
+                class_mapping = {
+                    "class0_emergencyVehicle": "Class 0",
+                    "class1_lightVehicle": "Class 1",
+                    "class2_mediumVehicle": "Class 2",
+                    "class3_heavyVehicle": "Class 3",
+                    "class4_taxi": "Class 4",
+                    "class5_bus": "Class 5"
+                }
+                vehicle_class_label = class_mapping.get(vehicle_class, "Unknown")
 
-                # Save detection result
-                st.session_state.results_data.append({
-                    "Datetime": current_time,
-                    "Vehicle Class": vehicle_class,
+                # Append result to the DataFrame
+                result_data.append({
+                    "Datetime": datetime.now().strftime("%d/%m/%Y %H:%M"),
+                    "Vehicle Class": vehicle_class_label,
                     "Plate Number": plate_text,
-                    "Toll": spot_name,
-                    "Mode": mode,
-                    "Toll Fare (RM)": toll_fare
+                    "Toll": location,
+                    "Mode": "Entry",  # Assuming "Entry" mode for now, can be adjusted as needed
+                    "Toll Fare (RM)": "-"  # Placeholder for toll fare
                 })
-                if plate_with_boxes is not None:
-                    st.image(plate_with_boxes, caption=f"Detected Plate - {spot_name}", use_column_width=True)
+            else:
+                st.warning("No license plate detected in the image.")
+        else:
+            st.error("Failed to capture an image. Please try again.")
 
-# Right panel for displaying results
-with col2:
-    st.header("Detection Results")
-    if st.session_state.results_data:
-        st.table(st.session_state.results_data)
-    else:
-        st.info("No results available yet. Please upload or capture images.")
+# Right interface (result display)
+st.subheader("Recognition Results")
+
+# Display results in a table
+if result_data:
+    df = pd.DataFrame(result_data)
+    st.dataframe(df)
+else:
+    st.write("No results to display.")
