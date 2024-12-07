@@ -89,7 +89,7 @@ def process_image(image):
     return vehicle_class, yolo_image, plate_with_boxes, plate_text
 
 # Function to get toll fare based on the vehicle class
-def get_toll_fare(vehicle_class, toll_plaza, spot_from, spot_to):
+def get_toll_fare(vehicle_class, toll_plaza_type, spot_from, spot_to):
     # Toll rates for Open Toll System (Fixed)
     open_toll_fares = {
         "Class 1": 6.00,
@@ -125,7 +125,7 @@ def get_toll_fare(vehicle_class, toll_plaza, spot_from, spot_to):
         }
     }
 
-    if toll_plaza in open_toll_fares:
+    if toll_plaza_type == "Open Toll System":
         return open_toll_fares.get(vehicle_class, 0.00)
 
     # For Closed Toll System, calculate fare based on entry and exit points
@@ -136,92 +136,85 @@ def get_toll_fare(vehicle_class, toll_plaza, spot_from, spot_to):
 # Streamlit app
 st.title("Vehicle Class and License Plate Recognition")
 
-# Toll plaza selection
-toll_plaza = st.selectbox("Select Toll Plaza", [
-    "Gombak Toll Plaza",
-    "Jalan Duta, Kuala Lumpur",
-    "Seremban, Negeri Sembilan",
-    "Juru, Penang"
-])
-
 # Layout for two panels
 col1, col2 = st.columns([2, 3])
 
-# Initialize session state to store the entry spot
-if "entry_spot" not in st.session_state:
-    st.session_state.entry_spot = None
-    st.session_state.entry_class = None
-    st.session_state.entry_time = None
-
-# Left panel for image uploads or webcam captures
+# Select the toll plaza directly in col1
 with col1:
-    st.header(f"Selected Toll Plaza: {toll_plaza}")
-    spots = {1: None}  # Only one spot for selection
-    spot_names = {1: toll_plaza}
+    toll_plaza_options = [
+        "Gombak Toll Plaza", 
+        "Jalan Duta, Kuala Lumpur", 
+        "Seremban, Negeri Sembilan", 
+        "Juru, Penang"
+    ]
+    toll_plaza_selection = st.selectbox("Select Toll Plaza", toll_plaza_options)
 
     results_data = []
+    spots = {1: None}  # One spot for all toll plazas now
+    spot_name = toll_plaza_selection
 
-    for spot_num in spots:
-        spot_name = spot_names[spot_num]
-        st.subheader(f"{spot_name}")
-        option = st.radio(f"Select Detect Option:", ["Upload an Image", "Use Camera"], key=f"spot_{spot_num}")
+    st.subheader(f"{spot_name}")
 
-        if option == "Upload an Image":
-            uploaded_file = st.file_uploader(f"Upload image for {spot_name}", type=["jpg", "jpeg", "png"], key=f"file_{spot_num}")
-            if uploaded_file is not None:
-                image = Image.open(uploaded_file)
-                spots[spot_num] = image
+    # Image upload or camera options
+    option = st.radio(f"Select Detection Option:", ["Upload an Image", "Use Camera"])
 
-        elif option == "Use Camera":
-            cap = cv2.VideoCapture(0)  
-            ret, frame = cap.read()
-            cap.release()
-            if ret:
-                image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-                spots[spot_num] = image
-            else:
-                st.warning(f"Failed to capture an image for {spot_name}")
+    if option == "Upload an Image":
+        uploaded_file = st.file_uploader(f"Upload image for {spot_name}", type=["jpg", "jpeg", "png"])
+        if uploaded_file is not None:
+            image = Image.open(uploaded_file)
+            spots[1] = image
 
-        # Process the image dynamically as soon as it's available
-        if spots[spot_num]:
-            with st.spinner(f"Processing Spot {spot_name}..."):
-                vehicle_class, yolo_image, plate_with_boxes, plate_text = process_image(spots[spot_num])
-                if vehicle_class:
-                    # Get current time in Asia/Kuala_Lumpur timezone
-                    kuala_lumpur_tz = pytz.timezone('Asia/Kuala_Lumpur')
-                    current_time = datetime.now(kuala_lumpur_tz).strftime("%d/%m/%Y %H:%M")
+    elif option == "Use Camera":
+        cap = cv2.VideoCapture(0)  
+        ret, frame = cap.read()
+        cap.release()
+        if ret:
+            image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+            spots[1] = image
+        else:
+            st.warning(f"Failed to capture an image for {spot_name}")
 
-                    # Determine mode (Entry or Exit)
-                    mode = "Entry"
-                    toll_fare = "-"
+    # Process the image dynamically as soon as it's available
+    if spots[1]:
+        with st.spinner(f"Processing Spot {spot_name}..."):
+            vehicle_class, yolo_image, plate_with_boxes, plate_text = process_image(spots[1])
+            if vehicle_class:
+                # Get current time in Asia/Kuala_Lumpur timezone
+                kuala_lumpur_tz = pytz.timezone('Asia/Kuala_Lumpur')
+                current_time = datetime.now(kuala_lumpur_tz).strftime("%d/%m/%Y %H:%M")
 
-                    if st.session_state.entry_spot is None:
-                        # Store entry details if it's the first time
-                        st.session_state.entry_spot = spot_name
-                        st.session_state.entry_class = vehicle_class
-                        st.session_state.entry_time = current_time
-                    else:
-                        # Calculate toll fare for Exit
-                        toll_fare = get_toll_fare(vehicle_class, toll_plaza, st.session_state.entry_spot, spot_name)
-                        mode = "Exit"
+                # Determine mode (Entry or Exit)
+                mode = "Entry" if spot_name not in st.session_state else "Exit"
+                
+                # Calculate toll fare
+                toll_fare = "-"
+                if spot_name == "Gombak Toll Plaza":  # Open Toll System
+                    toll_fare = get_toll_fare(vehicle_class, "Open Toll System", "", "")
+                else:  # Closed Toll System
+                    if mode == "Exit":
+                        toll_fare = get_toll_fare(vehicle_class, "Closed Toll System", st.session_state.entry_spot, spot_name)
                         st.session_state.entry_spot = None  # Reset entry after exit
+                    else:
+                        toll_fare = "-"
+                
+                # Save detection result
+                results_data.append({
+                    "Datetime": current_time,
+                    "Vehicle Class": vehicle_class,
+                    "Plate Number": plate_text,
+                    "Toll": spot_name,
+                    "Mode": mode,
+                    "Toll Fare (RM)": f"{toll_fare:.2f}" if toll_fare != "-" else "-"
+                })
 
-                    # Save detection result
-                    results_data.append({
-                        "Datetime": current_time,
-                        "Vehicle Class": vehicle_class,
-                        "Plate Number": plate_text,
-                        "Toll": spot_name,
-                        "Mode": mode,
-                        "Toll Fare (RM)": toll_fare
-                    })
+                # Update session state for entry/exit
+                if spot_name not in st.session_state:
+                    st.session_state.entry_spot = spot_name
 
-                    # Display the images
-                    if yolo_image is not None:
-                        st.image(yolo_image, caption=f"Detected Vehicle - {spot_name} with Bounding Boxes", use_column_width=True)
+                st.image(yolo_image, caption=f"Detected Vehicle - {spot_name} with Bounding Boxes", use_column_width=True)
 
-                    if plate_with_boxes is not None:
-                        st.image(plate_with_boxes, caption=f"Detected Plate - {spot_name} with OCR Bounding Boxes", use_column_width=True)
+                if plate_with_boxes is not None:
+                    st.image(plate_with_boxes, caption=f"Detected Plate - {spot_name} with OCR Bounding Boxes", use_column_width=True)
 
 # Right panel for displaying results
 with col2:
