@@ -201,7 +201,6 @@ with col1:
                     # Prepare result for entry/exit mode
                     if toll_plaza_type == "Closed Toll System":
                         if st.session_state.entry_spot is None:
-                            # First entry (no previous entry spot)
                             st.session_state.results_data.append({
                                 "Datetime": current_time,
                                 "Vehicle Class": vehicle_class,
@@ -214,7 +213,7 @@ with col1:
                             st.session_state.entry_spot = spot_name
                             st.session_state.entry_class = vehicle_class
                         else:
-                            # For exit, append the result and calculate the fare
+                            # If exit is detected, add exit information and clear entry data
                             st.session_state.results_data.append({
                                 "Datetime": current_time,
                                 "Vehicle Class": vehicle_class,
@@ -227,7 +226,6 @@ with col1:
                             st.session_state.entry_spot = None
                             st.session_state.entry_class = None
                     else:
-                        # For Open Toll System, simply append result
                         st.session_state.results_data.append({
                             "Datetime": current_time,
                             "Vehicle Class": vehicle_class,
