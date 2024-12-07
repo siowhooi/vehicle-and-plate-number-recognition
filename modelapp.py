@@ -142,10 +142,11 @@ toll_plaza_type = st.sidebar.radio("Select Toll System", ["Open Toll System", "C
 # Layout for two panels
 col1, col2 = st.columns([2, 3])
 
-# Initialize session state to store the entry spot
+# Initialize session state to store the entry spot and status
 if "entry_spot" not in st.session_state:
     st.session_state.entry_spot = None
     st.session_state.entry_class = None
+    st.session_state.mode = None  # Track mode (Entry/Exit)
 
 # Left panel for image uploads or webcam captures
 with col1:
@@ -195,21 +196,33 @@ with col1:
                     current_time = datetime.now(kuala_lumpur_tz).strftime("%d/%m/%Y %H:%M")
 
                     # Calculate toll fare
-                    toll_fare = get_toll_fare(vehicle_class, toll_plaza_type, st.session_state.entry_spot, spot_name)
+                    toll_fare = None
+                    mode = "Entry" if st.session_state.mode is None else "Exit"
+
+                    if toll_plaza_type == "Open Toll System":
+                        toll_fare = get_toll_fare(vehicle_class, toll_plaza_type, spot_name, spot_name)
+                    else:
+                        if st.session_state.entry_spot is None:
+                            # Entry detected
+                            st.session_state.entry_spot = spot_name
+                            st.session_state.entry_class = vehicle_class
+                            st.session_state.mode = "Entry"
+                            toll_fare = None
+                        else:
+                            # Exit detected, calculate fare
+                            toll_fare = get_toll_fare(vehicle_class, toll_plaza_type, st.session_state.entry_spot, spot_name)
+                            mode = "Exit"
+                            st.session_state.entry_spot = None  # Reset entry after exit
 
                     # Save detection result
                     results_data.append({
                         "Datetime": current_time,
                         "Vehicle Class": vehicle_class,
                         "Plate Number": plate_text,
-                        "Toll Fare (RM)": f"{toll_fare:.2f}",
-                        "Toll": spot_name
+                        "Toll": spot_name,
+                        "Mode": mode,
+                        "Toll Fare (RM)": f"{toll_fare:.2f}" if toll_fare is not None else "-"
                     })
-
-                    # Update session state for entry/exit
-                    if toll_plaza_type == "Closed Toll System" and st.session_state.entry_spot is None:
-                        st.session_state.entry_spot = spot_name
-                        st.session_state.entry_class = vehicle_class
 
                     st.image(yolo_image, caption=f"Detected Vehicle - {spot_name} with Bounding Boxes", use_column_width=True)
 
