@@ -148,7 +148,7 @@ if option == "Upload an Image":
 
         # Display results
         if plate_image is not None:
-            st.image(plate_image, caption="Detected License Plate", use_column_width=True)  # Show cropped plate image
+            st.image(plate_image, caption="Detected License Plate", use_column_width=True)
             # Map vehicle class
             vehicle_class_label = class_mapping.get(vehicle_class, "Unknown")
 
@@ -187,7 +187,7 @@ elif option == "Use Webcam":
 
             # Display results
             if plate_image is not None:
-                st.image(plate_image, caption="Detected License Plate", use_column_width=True)  # Show cropped plate image
+                st.image(plate_image, caption="Detected License Plate", use_column_width=True)
                 # Map vehicle class
                 vehicle_class_label = class_mapping.get(vehicle_class, "Unknown")
 
