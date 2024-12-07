@@ -104,11 +104,14 @@ def process_image(image):
             # Crop the license plate from the image
             plate_image = image_rgb[y1:y2, x1:x2]
 
+            # Convert the cropped plate to PIL Image for easier handling in Streamlit
+            plate_image_pil = Image.fromarray(plate_image)
+
             # Perform OCR to recognize the text
             plate_text = reader.readtext(plate_image, detail=0)
 
             # Return detected plate and class
-            return plate_image, ''.join(plate_text), class_name
+            return plate_image_pil, ''.join(plate_text), class_name
 
     return None, "No license plate detected", None
 
@@ -137,7 +140,7 @@ if option == "Upload an Image":
     if uploaded_file is not None:
         # Display uploaded image
         image = Image.open(uploaded_file)
-        st.image(image, caption="Uploaded Image", use_column_width=True)
+        st.image(image, caption="Detected Vehicle", use_column_width=True)
 
         # Process the image
         with st.spinner("Processing..."):
@@ -176,7 +179,7 @@ elif option == "Use Webcam":
         if ret:
             # Convert to PIL format
             image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-            st.image(image, caption="Captured Image", use_column_width=True)
+            st.image(image, caption="Detected Vehicle", use_column_width=True)
 
             # Process the image
             with st.spinner("Processing..."):
